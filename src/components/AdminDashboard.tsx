@@ -26,6 +26,8 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
   const [inventory, setInventory] = useState<any[]>([]);
   const [selectedParts, setSelectedParts] = useState<{ [ticketId: string]: { id: string; name: string; quantity: number }[] }>({});
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState<Record<string, boolean>>({});
+  const [selectedTicketForDetails, setSelectedTicketForDetails] = useState<Ticket | null>(null);
 
   useEffect(() => {
     async function fetchInventory() {
@@ -87,6 +89,12 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
   };
 
   const handleStatusUpdate = async (id: string, status: string) => {
+    // Haptic vibration feedback for mobile devices!
+    if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate([40]);
+    }
+
+    setLoadingStatus(prev => ({ ...prev, [id]: true }));
     try {
       const parts = selectedParts[id] || [];
       const res = await fetch(`/api/tickets/${id}/status`, {
@@ -115,6 +123,8 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
         message: "ไม่สามารถอัปเดตสถานะได้",
         type: "error"
       });
+    } finally {
+      setLoadingStatus(prev => ({ ...prev, [id]: false }));
     }
   };
 
@@ -218,9 +228,26 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                   {ticket.status === "PENDING" && (
                     <button 
                       onClick={() => handleStatusUpdate(ticket.id, "IN_PROGRESS")}
-                      className="w-full py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors shadow-sm"
+                      disabled={loadingStatus[ticket.id]}
+                      className="w-full py-3 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-500 hover:to-primary-600 text-white rounded-xl font-bold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group disabled:opacity-75 disabled:transform-none disabled:pointer-events-none text-sm"
                     >
-                      รับงานนี้
+                      {loadingStatus[ticket.id] ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          กำลังบันทึก...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 transition-transform duration-500 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          รับงานนี้ 🛠️
+                        </>
+                      )}
                     </button>
                   )}
                   {ticket.status === "IN_PROGRESS" && (
@@ -303,7 +330,15 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                       </button>
                     </div>
                   )}
-                  <button className="w-full py-2 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-border rounded-lg font-medium transition-colors">
+                  <button 
+                    onClick={() => {
+                      if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
+                        window.navigator.vibrate([20]);
+                      }
+                      setSelectedTicketForDetails(ticket);
+                    }}
+                    className="w-full py-2 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg font-medium transition-colors text-sm"
+                  >
                     รายละเอียด
                   </button>
                 </div>
@@ -313,6 +348,155 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
         )}
       </div>
     </div>
+
+    {/* Premium Ticket Details Modal */}
+    {selectedTicketForDetails && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up flex flex-col">
+          
+          {/* Modal Header */}
+          <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/40 rounded-t-3xl">
+            <div>
+              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getPriorityColor(selectedTicketForDetails.priority)}`}>
+                {selectedTicketForDetails.priority}
+              </span>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white mt-2">
+                {selectedTicketForDetails.title}
+              </h3>
+            </div>
+            <button 
+              onClick={() => setSelectedTicketForDetails(null)}
+              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-500 hover:text-red-600 flex items-center justify-center transition-all duration-300 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-6 flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Left Side: Photo */}
+              <div className="space-y-4">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ภาพถ่ายจากสถานที่จริง</span>
+                {selectedTicketForDetails.imageUrl ? (
+                  <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative group">
+                    <img 
+                      src={selectedTicketForDetails.imageUrl} 
+                      alt="ภาพปัญหาแจ้งซ่อม" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-64 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 text-sm p-4 text-center">
+                    <svg className="w-12 h-12 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    ไม่มีรูปภาพประกอบ
+                  </div>
+                )}
+
+                {/* Device Info */}
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลระบุตำแหน่ง</span>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    📍 สถานที่/ห้อง: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] || "ไม่ได้ระบุห้อง"}</span>
+                  </p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    🏷️ รหัสอุปกรณ์: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] || "ไม่มีรหัสอุปกรณ์"}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Side: AI Analytics Report */}
+              <div className="space-y-6">
+                
+                {/* AI Diagnoses Card */}
+                <div className="bg-primary-50/50 dark:bg-slate-900/50 p-5 rounded-2xl border border-primary-100 dark:border-slate-700 space-y-4">
+                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400">
+                    <span className="text-base">✨</span>
+                    <h4 className="font-black text-sm uppercase tracking-wider">รายงานผลวิเคราะห์ AI อัจฉริยะ</h4>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 block mb-0.5">หมวดหมู่ปัญหา:</span>
+                      <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700 inline-block shadow-sm">
+                        {selectedTicketForDetails.category || "ทั่วไป"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 block mb-0.5">วิเคราะห์สาเหตุที่เป็นไปได้:</span>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                        {selectedTicketForDetails.aiAnalysis?.cause || "ไม่พบสาเหตุระบุแน่ชัดในรายงาน"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimates Card */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ประเมินงบประมาณ</span>
+                    <p className="text-lg font-black text-slate-800 dark:text-white mt-1">
+                      ฿{selectedTicketForDetails.costEstimateMin || 0} - ฿{selectedTicketForDetails.costEstimateMax || 0}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ประเมินเวลาซ่อม</span>
+                    <p className="text-lg font-black text-slate-800 dark:text-white mt-1">
+                      ⏱️ {selectedTicketForDetails.timeEstimate || "ไม่ระบุ"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Reporter details */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลผู้แจ้งเรื่อง</span>
+                  <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-950/30 flex items-center justify-center font-black text-primary-700 dark:text-primary-400">
+                      U
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                        {selectedTicketForDetails.technician?.name || "ผู้ใช้งานแจ้งระบบ"}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        วันที่แจ้ง: {new Date(selectedTicketForDetails.createdAt).toLocaleString("th-TH")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Description Details */}
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">รายละเอียดคำอธิบายฉบับเต็ม</span>
+              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
+                {selectedTicketForDetails.description.replace(/\[รหัสอุปกรณ์:[^\]]+\]\s*/g, "").replace(/\[ห้อง:[^\]]+\]\s*/g, "")}
+              </p>
+            </div>
+
+          </div>
+
+          {/* Modal Footer */}
+          <div className="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 rounded-b-3xl flex justify-end">
+            <button 
+              onClick={() => setSelectedTicketForDetails(null)}
+              className="px-6 py-2.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold shadow-md transition-all duration-300 hover:scale-[1.02]"
+            >
+              ปิดหน้าต่าง
+            </button>
+          </div>
+
+        </div>
+      </div>
+    )}
     </>
   );
 }
