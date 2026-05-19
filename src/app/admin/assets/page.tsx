@@ -27,7 +27,7 @@ export default function AssetsPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl mx-auto print:p-0 animate-fade-in-up">
+    <div className="p-4 sm:p-6 md:p-8 space-y-8 max-w-4xl mx-auto print:p-0 animate-fade-in-up">
       {/* Header - Hidden on Print */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
         <div>

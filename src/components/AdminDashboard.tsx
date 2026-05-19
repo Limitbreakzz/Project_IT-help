@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Pusher from "pusher-js";
 import Link from "next/link";
-import { Wrench, Sparkles, Clock, MapPin, Tag, X, CheckCircle, Image as ImageIcon, ImageOff } from "lucide-react";
+import { Wrench, Sparkles, Clock, MapPin, Tag, X, CheckCircle, Image as ImageIcon, ImageOff, Trash2 } from "lucide-react";
 import Toast from "@/components/Toast";
+import Portal from "./ui/Portal";
 
 interface Ticket {
   id: string;
@@ -32,6 +33,8 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -73,7 +76,15 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
     });
 
     channel.bind("ticket-updated", function (data: Ticket) {
-      setTickets((prev) => prev.map(t => t.id === data.id ? data : t));
+      setTickets((prev) => prev.map(t => {
+        if (t.id === data.id) {
+          const imageUrl = (data.imageUrl === "base64_image_too_large_for_pusher" || !data.imageUrl)
+            ? t.imageUrl
+            : data.imageUrl;
+          return { ...data, imageUrl };
+        }
+        return t;
+      }));
     });
 
     // Request notification permission
@@ -115,6 +126,10 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
       });
       if (!res.ok) throw new Error("Failed to update status");
       
+      const json = await res.json();
+      const updatedTicket = json.data;
+      setTickets(prev => prev.map(t => t.id === id ? updatedTicket : t));
+
       setSelectedParts(prev => {
         const next = { ...prev };
         delete next[id];
@@ -135,6 +150,48 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
       setLoadingStatus(prev => ({ ...prev, [id]: false }));
     }
   };
+
+  const handleDelete = async () => {
+    if (!ticketToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticketToDelete}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to delete ticket");
+      
+      setTickets(prev => prev.filter(t => t.id !== ticketToDelete));
+      setTicketToDelete(null);
+      setToast({
+        message: "ลบรายการแจ้งซ่อมสำเร็จ!",
+        type: "success"
+      });
+    } catch (err) {
+      console.error(err);
+      setToast({
+        message: "ไม่สามารถลบรายการแจ้งซ่อมได้",
+        type: "error"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const statusOrder: Record<string, number> = {
+    PENDING: 0,
+    IN_PROGRESS: 1,
+    RESOLVED: 2,
+    CANCELLED: 3
+  };
+
+  const sortedTickets = [...tickets].sort((a, b) => {
+    const orderA = statusOrder[a.status] ?? 99;
+    const orderB = statusOrder[b.status] ?? 99;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   return (
     <>
@@ -161,12 +218,12 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {tickets.length === 0 ? (
+        {sortedTickets.length === 0 ? (
           <div className="text-center py-20 glass rounded-2xl border-dashed">
             <p className="text-slate-500 text-lg">ยังไม่มีรายการแจ้งซ่อม</p>
           </div>
         ) : (
-          tickets.map((ticket) => (
+          sortedTickets.map((ticket) => (
             <div key={ticket.id} className="glass p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-border flex flex-col md:flex-row gap-6">
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-4">
@@ -219,7 +276,12 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               </div>
               
               <div className="w-full md:w-64 flex flex-col gap-3">
-                {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" ? (
+                {ticket.imageUrl === "base64_image_too_large_for_pusher" ? (
+                  <div className="h-32 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2 p-4 text-center">
+                    <ImageIcon className="w-8 h-8 text-primary-500 animate-pulse" />
+                    <span className="text-xs font-bold tracking-tight">มีรูปภาพแนบ (กดรีเฟรชเพื่อแสดงรูป)</span>
+                  </div>
+                ) : ticket.imageUrl && ticket.imageUrl !== "uploaded_image" ? (
                   imageError[ticket.id] ? (
                     <div className="h-32 bg-red-50/40 dark:bg-red-950/10 rounded-xl border border-dashed border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-red-500 dark:text-red-400 gap-2 p-4">
                       <ImageOff className="w-8 h-8 opacity-75 text-red-400" />
@@ -352,6 +414,17 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                       </button>
                     </div>
                   )}
+
+                  {(ticket.status === "RESOLVED" || ticket.status === "CANCELLED") && (
+                    <button
+                      onClick={() => setTicketToDelete(ticket.id)}
+                      className="w-full py-2 border border-red-200 hover:border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer animate-fade-in"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      ลบรายการแจ้งซ่อม
+                    </button>
+                  )}
+
                   <button 
                     onClick={() => {
                       if (typeof window !== "undefined" && window.navigator && window.navigator.vibrate) {
@@ -373,174 +446,221 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
 
     {/* Premium Ticket Details Modal */}
     {selectedTicketForDetails && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up flex flex-col">
-          
-          {/* Modal Header */}
-          <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/40 rounded-t-3xl">
-            <div>
-              <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getPriorityColor(selectedTicketForDetails.priority)}`}>
-                {selectedTicketForDetails.priority}
-              </span>
-              <h3 className="text-xl font-black text-slate-800 dark:text-white mt-2">
-                {selectedTicketForDetails.title}
-              </h3>
-            </div>
-            <button 
-              onClick={() => setSelectedTicketForDetails(null)}
-              className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-500 hover:text-red-600 flex items-center justify-center transition-all duration-300 font-bold"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Modal Body */}
-          <div className="p-6 space-y-6 flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Left Side: Photo */}
-              <div className="space-y-4">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ภาพถ่ายจากสถานที่จริง</span>
-                {selectedTicketForDetails.imageUrl ? (
-                  <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative group flex items-center justify-center">
-                    <img 
-                      src={imageError[selectedTicketForDetails.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : selectedTicketForDetails.imageUrl} 
-                      onError={() => setImageError(prev => ({ ...prev, [selectedTicketForDetails.id]: true }))}
-                      alt="ภาพปัญหาแจ้งซ่อม" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-64 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 text-sm p-4 text-center">
-                    <svg className="w-12 h-12 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    ไม่มีรูปภาพประกอบ
-                  </div>
-                )}
-
-                {/* Device Info */}
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลระบุตำแหน่ง</span>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary-500" /> สถานที่/ห้อง: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] || "ไม่ได้ระบุห้อง"}</span>
-                  </p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-primary-500" /> รหัสอุปกรณ์: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] || "ไม่มีรหัสอุปกรณ์"}</span>
-                  </p>
-                </div>
+      <Portal>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-700 animate-scale-up flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/40 rounded-t-3xl">
+              <div>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getPriorityColor(selectedTicketForDetails.priority)}`}>
+                  {selectedTicketForDetails.priority}
+                </span>
+                <h3 className="text-xl font-black text-slate-800 dark:text-white mt-2">
+                  {selectedTicketForDetails.title}
+                </h3>
               </div>
+              <button 
+                onClick={() => setSelectedTicketForDetails(null)}
+                className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-500 hover:text-red-600 flex items-center justify-center transition-all duration-300 font-bold"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Right Side: AI Analytics Report */}
-              <div className="space-y-6">
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* AI Diagnoses Card */}
-                <div className="bg-primary-50/50 dark:bg-slate-900/50 p-5 rounded-2xl border border-primary-100 dark:border-slate-700 space-y-4">
-                  <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400">
-                    <Sparkles className="w-5 h-5" />
-                    <h4 className="font-black text-sm uppercase tracking-wider">รายงานผลวิเคราะห์ AI อัจฉริยะ</h4>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-xs font-bold text-slate-400 block mb-0.5">หมวดหมู่ปัญหา:</span>
-                      <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700 inline-block shadow-sm">
-                        {selectedTicketForDetails.category || "ทั่วไป"}
-                      </span>
+                {/* Left Side: Photo */}
+                <div className="space-y-4">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ภาพถ่ายจากสถานที่จริง</span>
+                  {selectedTicketForDetails.imageUrl ? (
+                    <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative group flex items-center justify-center">
+                      <img 
+                        src={imageError[selectedTicketForDetails.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : selectedTicketForDetails.imageUrl} 
+                        onError={() => setImageError(prev => ({ ...prev, [selectedTicketForDetails.id]: true }))}
+                        alt="ภาพปัญหาแจ้งซ่อม" 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-
-                    <div>
-                      <span className="text-xs font-bold text-slate-400 block mb-0.5">วิเคราะห์สาเหตุที่เป็นไปได้:</span>
-                      <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                        {selectedTicketForDetails.aiAnalysis?.cause || "ไม่พบสาเหตุระบุแน่ชัดในรายงาน"}
-                      </p>
+                  ) : (
+                    <div className="h-64 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 text-sm p-4 text-center">
+                      <svg className="w-12 h-12 mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      ไม่มีรูปภาพประกอบ
                     </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Estimates Card */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินงบประมาณ</span>
-                    <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight">
-                      ฿{selectedTicketForDetails.costEstimateMin || 0} - ฿{selectedTicketForDetails.costEstimateMax || 0}
+                  {/* Device Info */}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลระบุตำแหน่ง</span>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary-500" /> สถานที่/ห้อง: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] || "ไม่ได้ระบุห้อง"}</span>
                     </p>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินเวลาซ่อม</span>
-                    <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight flex items-center gap-1.5">
-                      <Clock className="w-5 h-5 text-slate-400" /> {selectedTicketForDetails.timeEstimate || "ไม่ระบุ"}
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-primary-500" /> รหัสอุปกรณ์: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] || "ไม่มีรหัสอุปกรณ์"}</span>
                     </p>
                   </div>
                 </div>
 
-                {/* Reporter details */}
-                <div className="space-y-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลผู้แจ้งเรื่อง</span>
-                  <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-950/30 flex items-center justify-center font-black text-primary-700 dark:text-primary-400">
-                      U
+                {/* Right Side: AI Analytics Report */}
+                <div className="space-y-6">
+                  
+                  {/* AI Diagnoses Card */}
+                  <div className="bg-primary-50/50 dark:bg-slate-900/50 p-5 rounded-2xl border border-primary-100 dark:border-slate-700 space-y-4">
+                    <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400">
+                      <Sparkles className="w-5 h-5" />
+                      <h4 className="font-black text-sm uppercase tracking-wider">รายงานผลวิเคราะห์ AI อัจฉริยะ</h4>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {selectedTicketForDetails.technician?.name || "ผู้ใช้งานแจ้งระบบ"}
+
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 block mb-0.5">หมวดหมู่ปัญหา:</span>
+                        <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 px-3 py-1 rounded-lg border border-slate-100 dark:border-slate-700 inline-block shadow-sm">
+                          {selectedTicketForDetails.category || "ทั่วไป"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 block mb-0.5">วิเคราะห์สาเหตุที่เป็นไปได้:</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                          {selectedTicketForDetails.aiAnalysis?.cause || "ไม่พบสาเหตุระบุแน่ชัดในรายงาน"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Estimates Card */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินงบประมาณ</span>
+                      <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight">
+                        ฿{selectedTicketForDetails.costEstimateMin || 0} - ฿{selectedTicketForDetails.costEstimateMax || 0}
                       </p>
-                      <p className="text-xs text-slate-400">
-                        วันที่แจ้ง: {mounted ? new Date(selectedTicketForDetails.createdAt).toLocaleString("th-TH") : ""}
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินเวลาซ่อม</span>
+                      <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight flex items-center gap-1.5">
+                        <Clock className="w-5 h-5 text-slate-400" /> {selectedTicketForDetails.timeEstimate || "ไม่ระบุ"}
                       </p>
                     </div>
                   </div>
+
+                  {/* Reporter details */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลผู้แจ้งเรื่อง</span>
+                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-950/30 flex items-center justify-center font-black text-primary-700 dark:text-primary-400">
+                        U
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {selectedTicketForDetails.technician?.name || "ผู้ใช้งานแจ้งระบบ"}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          วันที่แจ้ง: {mounted ? new Date(selectedTicketForDetails.createdAt).toLocaleString("th-TH") : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
               </div>
 
+              {/* Description Details */}
+              <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">รายละเอียดคำอธิบายฉบับเต็ม</span>
+                <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
+                  {selectedTicketForDetails.description.replace(/\[รหัสอุปกรณ์:[^\]]+\]\s*/g, "").replace(/\[ห้อง:[^\]]+\]\s*/g, "")}
+                </p>
+              </div>
+
             </div>
 
-            {/* Description Details */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">รายละเอียดคำอธิบายฉบับเต็ม</span>
-              <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed whitespace-pre-line">
-                {selectedTicketForDetails.description.replace(/\[รหัสอุปกรณ์:[^\]]+\]\s*/g, "").replace(/\[ห้อง:[^\]]+\]\s*/g, "")}
-              </p>
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 rounded-b-3xl flex justify-end">
+              <button 
+                onClick={() => setSelectedTicketForDetails(null)}
+                className="px-6 py-2.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold shadow-md transition-all duration-300 hover:scale-[1.02]"
+              >
+                ปิดหน้าต่าง
+              </button>
             </div>
 
           </div>
-
-          {/* Modal Footer */}
-          <div className="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 rounded-b-3xl flex justify-end">
-            <button 
-              onClick={() => setSelectedTicketForDetails(null)}
-              className="px-6 py-2.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold shadow-md transition-all duration-300 hover:scale-[1.02]"
-            >
-              ปิดหน้าต่าง
-            </button>
-          </div>
-
         </div>
-      </div>
+      </Portal>
     )}
 
     {/* Premium Image Preview Modal (Light-box) */}
     {previewImage && (
-      <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
-        onClick={() => setPreviewImage(null)}
-      >
-        <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
-          <button 
-            onClick={() => setPreviewImage(null)}
-            className="absolute top-4 right-4 z-10 p-2 bg-slate-900/60 hover:bg-slate-800/80 text-white rounded-full transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          <img 
-            src={previewImage} 
-            alt="พรีวิวรูปภาพปัญหา" 
-            className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
-          />
+      <Portal>
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 z-10 p-2 bg-slate-900/60 hover:bg-slate-800/80 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img 
+              src={previewImage} 
+              alt="พรีวิวรูปภาพปัญหา" 
+              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+            />
+          </div>
         </div>
-      </div>
+      </Portal>
+    )}
+
+    {/* Premium Delete Confirmation Modal */}
+    {ticketToDelete && (
+      <Portal>
+        <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-up">
+            <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-4 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-slate-800 dark:text-white mb-2">ยืนยันการลบรายการแจ้งซ่อม</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">
+              คุณต้องการลบรายการแจ้งซ่อมนี้ใช่หรือไม่? การดำเนินการนี้จะไม่สามารถกู้คืนข้อมูลกลับมาได้
+            </p>
+            <div className="flex gap-4">
+              <button
+                disabled={isDeleting}
+                onClick={() => setTicketToDelete(null)}
+                className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                disabled={isDeleting}
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    กำลังลบ...
+                  </>
+                ) : (
+                  "ยืนยันการลบ"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Portal>
     )}
     </>
   );

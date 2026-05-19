@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import UserDashboard from "@/components/UserDashboard";
+import UserHeader from "@/components/UserHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +28,14 @@ export default async function DashboardPage() {
   });
 
   return (
-    <main className="min-h-screen bg-slate-50 p-8 animate-fade-in-up">
-      <div className="max-w-4xl mx-auto">
-        <UserDashboard initialTickets={tickets} userId={userId} userRole={userRole} />
-      </div>
-    </main>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col antialiased">
+      <UserHeader session={session} />
+      
+      <main className="flex-1 p-6 md:p-8 animate-fade-in-up">
+        <div className="max-w-4xl mx-auto">
+          <UserDashboard initialTickets={tickets} userId={userId} userRole={userRole} />
+        </div>
+      </main>
+    </div>
   );
 }

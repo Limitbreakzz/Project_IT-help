@@ -1,73 +1,98 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Pusher from "pusher-js";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { X, ImageOff } from "lucide-react";
+import { ImageOff, Trash2, Wrench, LogOut } from "lucide-react";
+import { Ticket } from "@/types/ticket";
+import { useTicketRealtime } from "@/hooks/useTicketRealtime";
+import { StatusBadge } from "./ui/StatusBadge";
+import { ImagePreviewModal } from "./ui/ImagePreviewModal";
+import Portal from "./ui/Portal";
 
-interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl?: string | null;
-  status: string;
-  createdAt: Date | string;
-  technician?: { name: string | null } | null;
+interface UserDashboardProps {
+  initialTickets: Ticket[];
+  userId: string;
+  userRole?: string;
 }
 
-export default function UserDashboard({ initialTickets, userId, userRole }: { initialTickets: any[], userId: string, userRole?: string }) {
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+export default function UserDashboard({ initialTickets, userId, userRole }: UserDashboardProps) {
   const [mounted, setMounted] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
+  const [ticketToDelete, setTicketToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [ticketToCancel, setTicketToCancel] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  
+  const { tickets, setTickets } = useTicketRealtime(userId, initialTickets);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || "YOUR_PUSHER_KEY_HERE", {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "ap1",
-    });
+  const confirmDelete = async () => {
+    if (!ticketToDelete) return;
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/tickets/${ticketToDelete}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setTickets((prev) => prev.filter((t) => t.id !== ticketToDelete));
+        setTicketToDelete(null);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "เกิดข้อผิดพลาดในการลบรายการ");
+      }
+    } catch (error) {
+      console.error("Error deleting ticket:", error);
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
-    const channel = pusher.subscribe(`user-channel-${userId}`);
-    
-    channel.bind("ticket-updated", function (data: Ticket) {
-      setTickets((prev) => prev.map(t => t.id === data.id ? data : t));
-    });
-
-    return () => {
-      pusher.unsubscribe(`user-channel-${userId}`);
-    };
-  }, [userId]);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "PENDING": return <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold border border-yellow-200">รอรับงาน</span>;
-      case "IN_PROGRESS": return <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold border border-blue-200">กำลังดำเนินการ</span>;
-      case "RESOLVED": return <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold border border-green-200">เสร็จสิ้น</span>;
-      default: return <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-bold border border-gray-200">{status}</span>;
+  const confirmCancel = async () => {
+    if (!ticketToCancel) return;
+    setIsCancelling(true);
+    try {
+      const response = await fetch(`/api/tickets/${ticketToCancel}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CANCEL" }),
+      });
+      if (response.ok) {
+        const json = await response.json();
+        const updatedTicket = json.data;
+        setTickets((prev) => prev.map((t) => t.id === ticketToCancel ? updatedTicket : t));
+        setTicketToCancel(null);
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || "เกิดข้อผิดพลาดในการยกเลิกรายการ");
+      }
+    } catch (error) {
+      console.error("Error cancelling ticket:", error);
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
   return (
     <div className="w-full">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-3xl font-bold text-slate-800">ประวัติการแจ้งซ่อม</h2>
-          <p className="text-slate-500">ติดตามสถานะงานของคุณได้แบบ Real-time</p>
+          <h2 className="text-2xl font-black text-slate-800 dark:text-white">ประวัติการแจ้งซ่อม</h2>
+          <p className="text-xs text-slate-400 font-semibold mt-0.5">ติดตามสถานะงานของคุณได้แบบ Real-time</p>
         </div>
-        <div className="flex flex-wrap gap-4">
-          <Link href="/" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors whitespace-nowrap">
-            + แจ้งซ่อมใหม่
-          </Link>
-          <button onClick={() => signOut({ callbackUrl: "/login" })} className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors whitespace-nowrap">
-            ออกจากระบบ
-          </button>
-        </div>
+        <Link 
+          href="/" 
+          className="px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-black text-sm transition-all duration-300 hover:scale-[1.02] shadow-md shadow-primary-500/10 whitespace-nowrap"
+        >
+          + แจ้งซ่อมใหม่
+        </Link>
       </div>
-
 
       <div className="grid grid-cols-1 gap-4">
         {tickets.length === 0 ? (
@@ -76,75 +101,214 @@ export default function UserDashboard({ initialTickets, userId, userRole }: { in
           </div>
         ) : (
           tickets.map((ticket) => (
-            <div key={ticket.id} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between gap-6">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-bold text-slate-800">{ticket.title}</h3>
-                  {getStatusBadge(ticket.status)}
-                </div>
-                <p className="text-slate-500 text-sm mb-4">
-                  {mounted ? new Date(ticket.createdAt).toLocaleString('th-TH') : ""}
-                </p>
-                <p className="text-slate-700">{ticket.description}</p>
-              </div>
-              
-              <div className="md:text-right flex flex-col justify-end gap-3 min-w-[200px]">
-                {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" && (
-                  imageError[ticket.id] ? (
-                    <div className="h-24 bg-red-50/40 rounded-xl border border-dashed border-red-200 flex flex-col items-center justify-center text-red-500 gap-1 p-2">
-                      <ImageOff className="w-5 h-5 opacity-75 text-red-400" />
-                      <span className="text-[10px] font-bold">โหลดภาพไม่สำเร็จ</span>
-                    </div>
-                  ) : (
-                    <div className="h-24 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
-                      <img 
-                        src={ticket.imageUrl} 
-                        onError={() => setImageError(prev => ({ ...prev, [ticket.id]: true }))}
-                        alt="รูปภาพปัญหา" 
-                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setPreviewImage(ticket.imageUrl || null)}
-                      />
-                    </div>
-                  )
-                )}
-                {ticket.status === "PENDING" ? (
-                  <p className="text-slate-500 text-sm">กำลังรอช่างรับงาน...</p>
-                ) : (
-                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <p className="text-xs text-slate-500 mb-1">ช่างผู้รับผิดชอบ:</p>
-                    <p className="font-bold text-slate-700 flex items-center md:justify-end gap-2">
-                      <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                      {ticket.technician?.name || "ไม่ทราบชื่อ"}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+            <TicketItem 
+              key={ticket.id} 
+              ticket={ticket} 
+              mounted={mounted} 
+              imageError={imageError}
+              onImageError={(id) => setImageError(prev => ({ ...prev, [id]: true }))}
+              onImageClick={() => setPreviewImage(ticket.imageUrl || null)}
+              onDelete={() => setTicketToDelete(ticket.id)}
+              onCancel={() => setTicketToCancel(ticket.id)}
+            />
           ))
         )}
       </div>
 
-      {/* Premium Image Preview Modal (Light-box) */}
-      {previewImage && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
-          onClick={() => setPreviewImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
-            <button 
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-4 right-4 z-10 p-2 bg-slate-900/60 hover:bg-slate-800/80 text-white rounded-full transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <img 
-              src={previewImage} 
-              alt="พรีวิวรูปภาพปัญหา" 
-              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
-            />
+      <ImagePreviewModal 
+        imageUrl={previewImage} 
+        onClose={() => setPreviewImage(null)} 
+      />
+
+      {/* Premium Delete Confirmation Modal */}
+      {ticketToDelete && (
+        <Portal>
+          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-up">
+              <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-4 mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-slate-800 dark:text-white mb-2">ยืนยันการลบประวัติ</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">
+                คุณต้องการลบประวัติการแจ้งซ่อมนี้ใช่หรือไม่? การดำเนินการนี้จะไม่สามารถกู้คืนข้อมูลกลับมาได้
+              </p>
+              <div className="flex gap-4">
+                <button
+                  disabled={isDeleting}
+                  onClick={() => setTicketToDelete(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  disabled={isDeleting}
+                  onClick={confirmDelete}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isDeleting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      กำลังลบ...
+                    </>
+                  ) : (
+                    "ยืนยันการลบ"
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
+
+      {/* Premium Cancel Confirmation Modal */}
+      {ticketToCancel && (
+        <Portal>
+          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-up">
+              <div className="w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-600 dark:text-red-400 mb-4 mx-auto">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-center text-slate-800 dark:text-white mb-2">ยืนยันการยกเลิกแจ้งซ่อม</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">
+                คุณต้องการยกเลิกการแจ้งซ่อมรายการนี้ใช่หรือไม่? เมื่อยกเลิกแล้ว ช่างจะไม่สามารถเข้ามารับงานนี้ได้อีก
+              </p>
+              <div className="flex gap-4">
+                <button
+                  disabled={isCancelling}
+                  onClick={() => setTicketToCancel(null)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  ย้อนกลับ
+                </button>
+                <button
+                  disabled={isCancelling}
+                  onClick={confirmCancel}
+                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isCancelling ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      กำลังยกเลิก...
+                    </>
+                  ) : (
+                    "ยืนยันการยกเลิก"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+    </div>
+  );
+}
+
+function TicketItem({ ticket, mounted, imageError, onImageError, onImageClick, onDelete, onCancel }: { 
+  ticket: Ticket; 
+  mounted: boolean; 
+  imageError: Record<string, boolean>;
+  onImageError: (id: string) => void;
+  onImageClick: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between gap-6 hover:shadow-md transition-all duration-300">
+      <div className="flex-1">
+        <div className="flex flex-wrap items-center gap-3 mb-2">
+          <h3 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{ticket.title}</h3>
+          <StatusBadge status={ticket.status} />
+        </div>
+        <p className="text-slate-400 dark:text-slate-500 text-xs font-semibold mb-4">
+          {mounted ? new Date(ticket.createdAt).toLocaleString('th-TH') : ""}
+        </p>
+        <p className="text-slate-600 dark:text-slate-300 text-sm font-medium leading-relaxed whitespace-pre-line">
+          {ticket.description.replace(/\[รหัสอุปกรณ์:[^\]]+\]\s*/g, "").replace(/\[ห้อง:[^\]]+\]\s*/g, "")}
+        </p>
+
+        {/* Device metadata display if present */}
+        {(ticket.description.includes("[รหัสอุปกรณ์:") || ticket.description.includes("[ห้อง:")) && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {ticket.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] && (
+              <span className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                📍 ห้อง: {ticket.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1]}
+              </span>
+            )}
+            {ticket.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] && (
+              <span className="text-[10px] font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2.5 py-1 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                🏷️ รหัสอุปกรณ์: {ticket.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1]}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      
+      <div className="md:text-right flex flex-col justify-end gap-3 min-w-[220px]">
+        {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" && (
+          imageError[ticket.id] ? (
+            <div className="h-24 bg-red-50/40 dark:bg-red-950/10 rounded-2xl border border-dashed border-red-200 dark:border-red-900/40 flex flex-col items-center justify-center text-red-500 gap-1 p-2">
+              <ImageOff className="w-5 h-5 opacity-75 text-red-400" />
+              <span className="text-[10px] font-bold">โหลดภาพไม่สำเร็จ</span>
+            </div>
+          ) : (
+            <div className="h-24 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800">
+              <img 
+                src={ticket.imageUrl} 
+                onError={() => onImageError(ticket.id)}
+                alt="รูปภาพปัญหา" 
+                className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={onImageClick}
+              />
+            </div>
+          )
+        )}
+        {ticket.status === "PENDING" ? (
+          <div className="bg-amber-50/40 dark:bg-amber-950/10 p-3 rounded-2xl border border-amber-100/50 dark:border-amber-900/20 text-center">
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center justify-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+              กำลังรอช่างรับงาน...
+            </p>
+          </div>
+        ) : (
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-850 text-left md:text-right">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">ช่างผู้รับผิดชอบ</p>
+            <p className="font-extrabold text-sm text-slate-700 dark:text-slate-200 flex items-center md:justify-end gap-2">
+              <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+              {ticket.technician?.name || "ไม่ทราบชื่อ"}
+            </p>
+          </div>
+        )}
+
+        {(ticket.status === "PENDING" || ticket.status === "IN_PROGRESS") && (
+          <button
+            onClick={onCancel}
+            className="mt-2 w-full md:w-auto px-4 py-2 border border-slate-200 hover:border-red-200 text-slate-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 self-end cursor-pointer"
+          >
+            ยกเลิกแจ้งซ่อม
+          </button>
+        )}
+
+        {(ticket.status === "RESOLVED" || ticket.status === "CANCELLED") && (
+          <button
+            onClick={onDelete}
+            className="mt-2 w-full md:w-auto px-4 py-2 border border-red-200 hover:border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 self-end cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+            ลบประวัติงาน
+          </button>
+        )}
+      </div>
     </div>
   );
 }

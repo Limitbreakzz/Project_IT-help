@@ -3,9 +3,14 @@
 import { signOut } from "next-auth/react";
 
 export default function LogoutButton() {
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    window.location.href = "/login";
+  };
+
   return (
     <button
-      onClick={() => signOut({ callbackUrl: "/login" })}
+      onClick={handleLogout}
       className="w-full flex items-center gap-3 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl font-bold transition-all duration-300 hover:translate-x-1"
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

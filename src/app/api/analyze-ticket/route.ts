@@ -147,7 +147,11 @@ export async function POST(req: Request) {
     // Notify Dashboard Realtime
     if (process.env.PUSHER_APP_ID) {
       try {
-        await pusher.trigger("admin-channel", "new-ticket", ticket);
+        const pusherTicket = { ...ticket };
+        if (pusherTicket.imageUrl && pusherTicket.imageUrl.startsWith("data:") && pusherTicket.imageUrl.length > 500) {
+          pusherTicket.imageUrl = "base64_image_too_large_for_pusher";
+        }
+        await pusher.trigger("admin-channel", "new-ticket", pusherTicket);
       } catch (pusherErr) {
         console.error("Pusher trigger error:", pusherErr);
       }

@@ -21,7 +21,7 @@ export default async function TechnicianPage() {
   });
 
   return (
-    <div className="p-8 animate-fade-in-up">
+    <div className="p-4 sm:p-6 md:p-8 animate-fade-in-up">
       <div className="max-w-6xl mx-auto">
         <AdminDashboard initialTickets={tickets} />
       </div>

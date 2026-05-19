@@ -30,7 +30,7 @@ export default function AnalyticsPage() {
           throw new Error("ล้มเหลวในการดึงข้อมูลสถิติ");
         }
         const json = await res.json();
-        setData(json);
+        setData(json.data);
       } catch (err: any) {
         setError(err.message || "เกิดข้อผิดพลาด");
       } finally {
@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 max-w-7xl mx-auto animate-fade-in-up">
+    <div className="p-4 sm:p-6 md:p-8 space-y-8 max-w-7xl mx-auto animate-fade-in-up">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
