@@ -1,7 +1,7 @@
 {
-  "name": "Smart Maintenance",
-  "short_name": "Smart Maint",
-  "description": "ระบบแจ้งซ่อมอัจฉริยะที่วิเคราะห์ปัญหาด้วย AI",
+  "name": "IT Helpdesk",
+  "short_name": "IT Helpdesk",
+  "description": "ระบบแจ้งซ่อมอัจฉริยะฝ่ายไอทีวิเคราะห์ปัญหาด้วย AI",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
