@@ -109,29 +109,8 @@ export async function POST(req: Request) {
 
     let finalImageUrl = null;
     if (image) {
-      const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
-      if (match) {
-        const mimeType = match[1]; // e.g., image/png
-        const base64Data = match[2];
-        const extension = mimeType.split('/')[1] || 'jpg';
-        const fileName = `ticket-${Date.now()}-${Math.floor(Math.random() * 1000)}.${extension}`;
-        
-        // Save to public/uploads
-        const fs = await import('fs/promises');
-        const path = await import('path');
-        const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-        
-        try {
-          await fs.access(uploadsDir);
-        } catch {
-          await fs.mkdir(uploadsDir, { recursive: true });
-        }
-        
-        const filePath = path.join(uploadsDir, fileName);
-        await fs.writeFile(filePath, Buffer.from(base64Data, 'base64'));
-        
-        finalImageUrl = `/uploads/${fileName}`;
-      }
+      // Store the image directly in the database as base64 string to support cloud serverless deployments (Vercel/etc.)
+      finalImageUrl = image;
     }
 
     const finalDescription = deviceId 

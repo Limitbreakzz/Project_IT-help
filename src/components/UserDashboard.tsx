@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Pusher from "pusher-js";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
+import { X, ImageOff } from "lucide-react";
 
 interface Ticket {
   id: string;
@@ -18,6 +19,8 @@ interface Ticket {
 export default function UserDashboard({ initialTickets, userId, userRole }: { initialTickets: any[], userId: string, userRole?: string }) {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
   const [mounted, setMounted] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setMounted(true);
@@ -87,14 +90,22 @@ export default function UserDashboard({ initialTickets, userId, userRole }: { in
               
               <div className="md:text-right flex flex-col justify-end gap-3 min-w-[200px]">
                 {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" && (
-                  <div className="h-24 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
-                    <img 
-                      src={ticket.imageUrl} 
-                      alt="รูปภาพปัญหา" 
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(ticket.imageUrl || "", "_blank")}
-                    />
-                  </div>
+                  imageError[ticket.id] ? (
+                    <div className="h-24 bg-red-50/40 rounded-xl border border-dashed border-red-200 flex flex-col items-center justify-center text-red-500 gap-1 p-2">
+                      <ImageOff className="w-5 h-5 opacity-75 text-red-400" />
+                      <span className="text-[10px] font-bold">โหลดภาพไม่สำเร็จ</span>
+                    </div>
+                  ) : (
+                    <div className="h-24 bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                      <img 
+                        src={ticket.imageUrl} 
+                        onError={() => setImageError(prev => ({ ...prev, [ticket.id]: true }))}
+                        alt="รูปภาพปัญหา" 
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(ticket.imageUrl || null)}
+                      />
+                    </div>
+                  )
                 )}
                 {ticket.status === "PENDING" ? (
                   <p className="text-slate-500 text-sm">กำลังรอช่างรับงาน...</p>
@@ -112,6 +123,28 @@ export default function UserDashboard({ initialTickets, userId, userRole }: { in
           ))
         )}
       </div>
+
+      {/* Premium Image Preview Modal (Light-box) */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
+            <button 
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 z-10 p-2 bg-slate-900/60 hover:bg-slate-800/80 text-white rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img 
+              src={previewImage} 
+              alt="พรีวิวรูปภาพปัญหา" 
+              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

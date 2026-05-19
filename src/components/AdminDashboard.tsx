@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Pusher from "pusher-js";
 import Link from "next/link";
-import { Wrench, Sparkles, Clock, MapPin, Tag, X, CheckCircle, Image as ImageIcon } from "lucide-react";
+import { Wrench, Sparkles, Clock, MapPin, Tag, X, CheckCircle, Image as ImageIcon, ImageOff } from "lucide-react";
 import Toast from "@/components/Toast";
 
 interface Ticket {
@@ -31,6 +31,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
   const [selectedTicketForDetails, setSelectedTicketForDetails] = useState<Ticket | null>(null);
   const [imageError, setImageError] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -219,15 +220,22 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               
               <div className="w-full md:w-64 flex flex-col gap-3">
                 {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" ? (
-                  <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 relative">
-                    <img 
-                      src={imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl} 
-                      onError={() => setImageError(prev => ({ ...prev, [ticket.id]: true }))}
-                      alt="รูปภาพปัญหาแจ้งซ่อม" 
-                      className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl || "", "_blank")}
-                    />
-                  </div>
+                  imageError[ticket.id] ? (
+                    <div className="h-32 bg-red-50/40 dark:bg-red-950/10 rounded-xl border border-dashed border-red-200 dark:border-red-900/30 flex flex-col items-center justify-center text-red-500 dark:text-red-400 gap-2 p-4">
+                      <ImageOff className="w-8 h-8 opacity-75 text-red-400" />
+                      <span className="text-xs font-bold tracking-tight">โหลดรูปภาพไม่สำเร็จ</span>
+                    </div>
+                  ) : (
+                    <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 relative">
+                      <img 
+                        src={ticket.imageUrl} 
+                        onError={() => setImageError(prev => ({ ...prev, [ticket.id]: true }))}
+                        alt="รูปภาพปัญหาแจ้งซ่อม" 
+                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewImage(ticket.imageUrl)}
+                      />
+                    </div>
+                  )
                 ) : ticket.imageUrl === "uploaded_image" ? (
                   <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 text-sm">
                     [รูปภาพเก่าไม่สามารถดูได้]
@@ -509,6 +517,28 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
             </button>
           </div>
 
+        </div>
+      </div>
+    )}
+
+    {/* Premium Image Preview Modal (Light-box) */}
+    {previewImage && (
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in"
+        onClick={() => setPreviewImage(null)}
+      >
+        <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl shadow-2xl border border-slate-800 animate-scale-up" onClick={(e) => e.stopPropagation()}>
+          <button 
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-4 right-4 z-10 p-2 bg-slate-900/60 hover:bg-slate-800/80 text-white rounded-full transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="พรีวิวรูปภาพปัญหา" 
+            className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+          />
         </div>
       </div>
     )}

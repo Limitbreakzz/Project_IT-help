@@ -46,7 +46,7 @@ model Ticket {
   id              String       @id @default(cuid())
   title           String
   description     String       @db.Text
-  imageUrl        String?
+  imageUrl        String?      @db.LongText
   status          TicketStatus @default(PENDING)
   priority        Priority     @default(MEDIUM)
   category        String?
