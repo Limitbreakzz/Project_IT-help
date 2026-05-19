@@ -24,6 +24,7 @@ export default function UserDashboard({ initialTickets, userId, userRole }: User
   const [isDeleting, setIsDeleting] = useState(false);
   const [ticketToCancel, setTicketToCancel] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [activeTab, setActiveTab] = useState<"pending" | "progress" | "completed">("pending");
   
   const { tickets, setTickets } = useTicketRealtime(userId, initialTickets);
 
@@ -79,6 +80,17 @@ export default function UserDashboard({ initialTickets, userId, userRole }: User
     }
   };
 
+  const pendingCount = tickets.filter(t => t.status === "PENDING").length;
+  const progressCount = tickets.filter(t => t.status === "IN_PROGRESS").length;
+  const completedCount = tickets.filter(t => t.status === "RESOLVED" || t.status === "CANCELLED").length;
+
+  const filteredTickets = tickets.filter((ticket) => {
+    if (activeTab === "pending") return ticket.status === "PENDING";
+    if (activeTab === "progress") return ticket.status === "IN_PROGRESS";
+    if (activeTab === "completed") return ticket.status === "RESOLVED" || ticket.status === "CANCELLED";
+    return true;
+  });
+
   return (
     <div className="w-full">
       <div className="flex justify-between items-center mb-6">
@@ -94,13 +106,74 @@ export default function UserDashboard({ initialTickets, userId, userRole }: User
         </Link>
       </div>
 
+      {/* Tabs Filter Bar */}
+      <div className="flex border-b border-slate-100 dark:border-slate-800 mb-6 gap-2 overflow-x-auto pb-px">
+        <button
+          onClick={() => setActiveTab("pending")}
+          className={`flex items-center gap-2.5 px-4 py-3 border-b-2 font-black text-xs tracking-wide transition-all duration-300 whitespace-nowrap cursor-pointer ${
+            activeTab === "pending"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400"
+              : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <span>รอรับงาน</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "pending"
+              ? "bg-amber-100 dark:bg-amber-950/45 text-amber-700 dark:text-amber-400"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+          }`}>
+            {pendingCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("progress")}
+          className={`flex items-center gap-2.5 px-4 py-3 border-b-2 font-black text-xs tracking-wide transition-all duration-300 whitespace-nowrap cursor-pointer ${
+            activeTab === "progress"
+              ? "border-blue-500 text-blue-600 dark:text-blue-400"
+              : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <span>กำลังดำเนินการ</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "progress"
+              ? "bg-blue-100 dark:bg-blue-950/45 text-blue-700 dark:text-blue-400"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+          }`}>
+            {progressCount}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("completed")}
+          className={`flex items-center gap-2.5 px-4 py-3 border-b-2 font-black text-xs tracking-wide transition-all duration-300 whitespace-nowrap cursor-pointer ${
+            activeTab === "completed"
+              ? "border-green-500 text-green-600 dark:text-green-400"
+              : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+          }`}
+        >
+          <span>เสร็จสิ้น / ยกเลิก</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            activeTab === "completed"
+              ? "bg-green-100 dark:bg-green-950/45 text-green-700 dark:text-green-400"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+          }`}>
+            {completedCount}
+          </span>
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4">
-        {tickets.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
-            <p className="text-slate-500 text-lg">คุณยังไม่มีประวัติการแจ้งซ่อม</p>
+        {filteredTickets.length === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+            <p className="text-slate-400 text-sm font-bold">
+              {activeTab === "pending" && "ไม่มีรายการแจ้งซ่อมใหม่ (รอดำเนินการ)"}
+              {activeTab === "progress" && "ไม่มีรายการที่กำลังดำเนินการขณะนี้"}
+              {activeTab === "completed" && "ไม่มีประวัติรายการที่เสร็จสิ้นหรือถูกยกเลิก"}
+            </p>
           </div>
         ) : (
-          tickets.map((ticket) => (
+          filteredTickets.map((ticket) => (
             <TicketItem 
               key={ticket.id} 
               ticket={ticket} 
@@ -271,14 +344,15 @@ function TicketItem({ ticket, mounted, imageError, onImageError, onImageClick, o
           )
         )}
         {ticket.status === "PENDING" ? (
-          <div className="bg-amber-50/40 dark:bg-amber-950/10 p-3 rounded-2xl border border-amber-100/50 dark:border-amber-900/20 text-center">
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center justify-center gap-1.5">
+          <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-950/10 px-4 py-3.5 rounded-2xl border border-amber-200/60 dark:border-amber-900/35 flex flex-col items-center justify-center gap-1.5 shadow-sm shadow-amber-500/5 animate-pulse">
+            <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
-              กำลังรอช่างรับงาน...
-            </p>
+              <span className="text-xs font-black text-amber-700 dark:text-amber-400 tracking-wide uppercase">กำลังรอช่างรับงานซ่อม...</span>
+            </div>
+            <p className="text-[10px] text-amber-600/85 dark:text-amber-500/70 font-black">ความสำคัญประเมินโดย AI: {ticket.priority}</p>
           </div>
         ) : (
           <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-850 text-left md:text-right">
