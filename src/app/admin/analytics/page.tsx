@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle2, Lightbulb, XCircle } from "lucide-react";
 
 interface AnalyticsData {
   summary: {
@@ -60,7 +61,9 @@ export default function AnalyticsPage() {
     return (
       <div className="p-8 text-center">
         <div className="bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 p-6 rounded-2xl border border-red-200 max-w-md mx-auto">
-          <h2 className="text-xl font-bold mb-2">❌ ไม่สามารถดึงข้อมูลได้</h2>
+          <h2 className="text-xl font-bold mb-2 flex items-center justify-center gap-2">
+            <XCircle className="w-6 h-6" /> ไม่สามารถดึงข้อมูลได้
+          </h2>
           <p>{error || "กรุณาลองใหม่อีกครั้ง"}</p>
         </div>
       </div>
@@ -136,7 +139,8 @@ export default function AnalyticsPage() {
             <h3 className="text-4xl font-extrabold text-yellow-500 mt-2">{data.summary.pending}</h3>
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-yellow-600 font-semibold bg-yellow-50 dark:bg-yellow-950/20 px-3 py-1 rounded-full w-fit">
-            <span>⚠️ ต้องการช่างเข้าซ่อมด่วน</span>
+            <AlertCircle className="w-4 h-4" />
+            <span>ต้องการช่างเข้าซ่อมด่วน</span>
           </div>
         </div>
 
@@ -146,7 +150,8 @@ export default function AnalyticsPage() {
             <h3 className="text-4xl font-extrabold text-green-500 mt-2">{data.summary.resolved}</h3>
           </div>
           <div className="mt-4 flex items-center gap-2 text-xs text-green-600 font-semibold bg-green-50 dark:bg-green-950/20 px-3 py-1 rounded-full w-fit">
-            <span>✅ อัตราการแก้ปัญหา {data.summary.total > 0 ? Math.round((data.summary.resolved / data.summary.total) * 100) : 0}%</span>
+            <CheckCircle2 className="w-4 h-4" />
+            <span>อัตราการแก้ปัญหา {data.summary.total > 0 ? Math.round((data.summary.resolved / data.summary.total) * 100) : 0}%</span>
           </div>
         </div>
 
@@ -228,8 +233,9 @@ export default function AnalyticsPage() {
             </div>
           </div>
           
-          <div className="text-xs text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-4 mt-6">
-            💡 AI แนะนำ: ปัญหาหมวดหมู่ส่วนใหญ่วิเคราะห์แล้วพบว่าสามารถเบิกอะไหล่เพื่อรีเซ็ตเครื่องทดแทนได้
+          <div className="flex items-center gap-2 text-xs text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-4 mt-6">
+            <Lightbulb className="w-4 h-4 text-yellow-500" />
+            <span>AI แนะนำ: ปัญหาหมวดหมู่ส่วนใหญ่วิเคราะห์แล้วพบว่าสามารถเบิกอะไหล่เพื่อรีเซ็ตเครื่องทดแทนได้</span>
           </div>
         </div>
       </div>

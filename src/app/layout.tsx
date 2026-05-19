@@ -9,13 +9,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Maintenance",
-  description: "ระบบแจ้งซ่อมอัจฉริยะที่ใช้ AI ช่วยวิเคราะห์",
+  title: "IT Helpdesk",
+  description: "ระบบแจ้งซ่อมไอทีและอุปกรณ์คอมพิวเตอร์อัจฉริยะ IT Helpdesk",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Smart Maintenance",
+    title: "IT Helpdesk",
   },
   icons: {
     apple: "/icon-192x192.png",

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
 import { GoogleGenAI } from "@google/genai";
 import Pusher from "pusher";
 import { sendLineNotification } from "@/lib/line";
-
-const prisma = new PrismaClient();
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID || "",

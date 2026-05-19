@@ -1,11 +1,18 @@
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
 import AdminDashboard from "@/components/AdminDashboard";
-
-const prisma = new PrismaClient();
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function TechnicianPage() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "TECHNICIAN")) {
+    redirect("/login");
+  }
+
   const tickets = await prisma.ticket.findMany({
     orderBy: {
       createdAt: "desc"

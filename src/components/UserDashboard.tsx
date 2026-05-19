@@ -17,6 +17,11 @@ interface Ticket {
 
 export default function UserDashboard({ initialTickets, userId, userRole }: { initialTickets: any[], userId: string, userRole?: string }) {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || "YOUR_PUSHER_KEY_HERE", {
@@ -74,7 +79,9 @@ export default function UserDashboard({ initialTickets, userId, userRole }: { in
                   <h3 className="text-lg font-bold text-slate-800">{ticket.title}</h3>
                   {getStatusBadge(ticket.status)}
                 </div>
-                <p className="text-slate-500 text-sm mb-4">{new Date(ticket.createdAt).toLocaleString('th-TH')}</p>
+                <p className="text-slate-500 text-sm mb-4">
+                  {mounted ? new Date(ticket.createdAt).toLocaleString('th-TH') : ""}
+                </p>
                 <p className="text-slate-700">{ticket.description}</p>
               </div>
               

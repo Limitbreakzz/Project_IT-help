@@ -26,7 +26,7 @@ export default async function TechnicianLayout({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col md:flex-row">
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+      <aside className="w-full md:w-64 shrink-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between md:sticky md:top-0 md:h-screen z-10">
         <div>
           <div className="p-6 border-b border-slate-200 dark:border-slate-700">
             <h1 className="text-xl font-extrabold text-slate-800 dark:text-white">IT Helpdesk</h1>

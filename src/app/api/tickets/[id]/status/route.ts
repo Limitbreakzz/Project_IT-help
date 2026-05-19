@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import Pusher from "pusher";
 import { sendLineNotification } from "@/lib/line";
-
-const prisma = new PrismaClient();
 
 const pusher = new Pusher({
   appId: process.env.PUSHER_APP_ID || "",
@@ -83,9 +81,13 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
 
     // Notify user realtime
     if (process.env.PUSHER_APP_ID) {
-      await pusher.trigger(`user-channel-${ticket.userId}`, "ticket-updated", ticket);
-      // Also notify admin channel
-      await pusher.trigger("admin-channel", "ticket-updated", ticket);
+      try {
+        await pusher.trigger(`user-channel-${ticket.userId}`, "ticket-updated", ticket);
+        // Also notify admin channel
+        await pusher.trigger("admin-channel", "ticket-updated", ticket);
+      } catch (pusherErr) {
+        console.error("Pusher trigger error on status update:", pusherErr);
+      }
     }
 
     return NextResponse.json({ success: true, ticket });

@@ -57,7 +57,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-primary-100 mt-12 animate-scale-up hover:shadow-2xl transition-all duration-300">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary-900 mb-2">เข้าสู่ระบบ</h1>
-          <p className="text-slate-500">ระบบแจ้งซ่อมอัจฉริยะ</p>
+          <p className="text-slate-500">ระบบแจ้งซ่อม IT Helpdesk</p>
         </div>
 
         {error && (
@@ -102,12 +102,6 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center text-sm text-slate-500">
           ยังไม่มีบัญชีใช่ไหม? <Link href="/register" className="text-primary-600 hover:underline font-medium">สมัครสมาชิก</Link>
-        </div>
-        
-        <div className="mt-8 pt-6 border-t border-slate-100 text-xs text-center text-slate-400">
-          <p>บัญชีสำหรับช่างทดสอบ:</p>
-          <p>Email: technician@example.com</p>
-          <p>Pass: password123</p>
         </div>
       </div>
     </main>

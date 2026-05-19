@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { Zap, LogIn, Lock } from "lucide-react";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -22,10 +23,10 @@ export default async function Home() {
       <div className="z-10 w-full max-w-5xl flex flex-col md:flex-row items-center gap-12">
         <div className="flex-1 text-center md:text-left animate-fade-in-up">
           <h1 className="text-4xl md:text-6xl font-extrabold text-primary-900 dark:text-primary-50 tracking-tight mb-4">
-            แจ้งซ่อม<span className="text-primary-600 dark:text-primary-400">อัจฉริยะ</span>
+            ระบบแจ้งซ่อม <span className="text-primary-600 dark:text-primary-400">IT Helpdesk</span>
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 max-w-lg mx-auto md:mx-0">
-            เพียงแค่ถ่ายรูปปัญหา AI ของเราจะวิเคราะห์อาการ แนะนำช่าง และประเมินค่าใช้จ่ายเบื้องต้นให้คุณทันที ⚡
+          <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 max-w-lg mx-auto md:mx-0 flex flex-wrap items-center justify-center md:justify-start gap-1">
+            เพียงแค่ถ่ายรูปปัญหา AI ของเราจะวิเคราะห์อาการ แนะนำช่าง และประเมินค่าใช้จ่ายเบื้องต้นให้คุณทันที <Zap className="w-5 h-5 text-yellow-500 fill-yellow-500" />
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-6 text-sm font-medium text-slate-500 dark:text-slate-400 mb-8">
             <div className="flex items-center gap-2">
@@ -66,7 +67,7 @@ export default async function Home() {
           ) : (
             <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl p-8 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/20 text-center">
               <div className="w-16 h-16 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <Lock className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">ต้องเข้าสู่ระบบก่อนแจ้งซ่อม</h3>
               <p className="text-slate-500 mb-6">เพื่อให้เรารู้ว่าใครเป็นผู้แจ้งและสามารถติดตามสถานะงานได้ กรุณาเข้าสู่ระบบก่อนครับ</p>

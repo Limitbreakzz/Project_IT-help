@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { MapPin, MonitorSmartphone, ImagePlus, X, Loader2 } from "lucide-react";
 
 import Toast from "@/components/Toast";
 
@@ -47,7 +48,7 @@ export default function UserRequestForm() {
       if (!res.ok) {
         const errorData = await res.json();
         setToast({
-          message: `ระบบถูกปฏิเสธ: ${errorData.reason || errorData.error}`,
+          message: `ถูกปฏิเสธ: ${errorData.reason || "ไม่เกี่ยวกับอุปกรณ์ IT"}. กรุณาแจ้งปัญหาที่เกี่ยวข้องกับ IT เท่านั้น`,
           type: "error"
         });
         return;
@@ -84,19 +85,34 @@ export default function UserRequestForm() {
       <form onSubmit={handleSubmit} className="w-full max-w-lg mx-auto p-6 glass rounded-2xl shadow-xl border border-border/50 transition-all">
       <h2 className="text-2xl font-bold mb-2 text-foreground">แจ้งปัญหาการใช้งาน</h2>
       
-      {deviceId && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-slate-800 dark:to-slate-700 rounded-xl border border-primary-200 dark:border-slate-600 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold">
-            📍
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">สแกนอุปกรณ์สำเร็จ</p>
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              {deviceId} {location ? `(ห้อง ${location})` : ""}
-            </p>
-          </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label htmlFor="location" className="flex items-center gap-2 text-sm font-medium mb-2 text-foreground/80">
+            <MapPin className="w-4 h-4 text-primary-500" /> สถานที่ / ห้อง (ระบุถ้ามี)
+          </label>
+          <input
+            type="text"
+            id="location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="เช่น ห้อง 404, ชั้น 2"
+            className="w-full p-3 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all shadow-sm"
+          />
         </div>
-      )}
+        <div>
+          <label htmlFor="deviceId" className="flex items-center gap-2 text-sm font-medium mb-2 text-foreground/80">
+            <MonitorSmartphone className="w-4 h-4 text-primary-500" /> รหัสอุปกรณ์ (ระบุถ้ามี)
+          </label>
+          <input
+            type="text"
+            id="deviceId"
+            value={deviceId}
+            onChange={(e) => setDeviceId(e.target.value)}
+            placeholder="เช่น PC-1234, AC-01"
+            className="w-full p-3 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all shadow-sm"
+          />
+        </div>
+      </div>
       
       <div className="mb-6">
         <label className="block text-sm font-medium mb-2 text-foreground/80">ถ่ายรูปปัญหา (ถ้ามี)</label>
@@ -107,16 +123,14 @@ export default function UserRequestForm() {
               <button 
                 type="button" 
                 onClick={() => setImagePreview(null)}
-                className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-2 hover:bg-black/70 transition-colors"
+                className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-black/70 transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-10 cursor-pointer">
-              <svg className="w-10 h-10 text-primary-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-              </svg>
+              <ImagePlus className="w-10 h-10 text-primary-400 mb-2" />
               <span className="text-sm text-primary-600 font-medium">คลิกเพื่ออัปโหลดรูปภาพ</span>
               <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
             </div>
@@ -125,16 +139,19 @@ export default function UserRequestForm() {
       </div>
 
       <div className="mb-6">
-        <label htmlFor="description" className="block text-sm font-medium mb-2 text-foreground/80">อธิบายปัญหา</label>
+        <label htmlFor="description" className="block text-sm font-medium mb-2 text-foreground/80">อธิบายปัญหา (เฉพาะปัญหา IT)</label>
         <textarea
           id="description"
           rows={4}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="เช่น แอร์น้ำหยด, ไฟกระพริบ, ท่อน้ำแตก..."
+          placeholder="เช่น เปิดคอมไม่ติด, เน็ตใช้งานไม่ได้, พริ้นเตอร์ไม่ออก, หรือจอฟ้า (กรุณาแจ้งเฉพาะปัญหาด้านไอที)"
           className="w-full p-4 rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all resize-none shadow-sm"
           required={!imagePreview}
         />
+        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+          <MonitorSmartphone className="w-3 h-3" /> ระบบนี้รองรับเฉพาะการแจ้งซ่อมคอมพิวเตอร์ อุปกรณ์ไอที และเน็ตเวิร์คเท่านั้น
+        </p>
       </div>
 
       <button
@@ -143,11 +160,8 @@ export default function UserRequestForm() {
         className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 transform hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
       >
         {isSubmitting ? (
-          <span className="flex items-center justify-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="animate-spin w-5 h-5" />
             กำลังวิเคราะห์ข้อมูลด้วย AI...
           </span>
         ) : (

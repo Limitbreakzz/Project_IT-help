@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Pusher from "pusher-js";
 import Link from "next/link";
+import { Wrench, Sparkles, Clock, MapPin, Tag, X, CheckCircle, Image as ImageIcon } from "lucide-react";
 import Toast from "@/components/Toast";
 
 interface Ticket {
@@ -28,6 +29,12 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<Record<string, boolean>>({});
   const [selectedTicketForDetails, setSelectedTicketForDetails] = useState<Ticket | null>(null);
+  const [imageError, setImageError] = useState<Record<string, boolean>>({});
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     async function fetchInventory() {
@@ -164,7 +171,9 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-foreground">{ticket.title}</h3>
-                    <p className="text-slate-500 text-sm mt-1">{new Date(ticket.createdAt).toLocaleString('th-TH')}</p>
+                    <p className="text-slate-500 text-sm mt-1">
+                      {mounted ? new Date(ticket.createdAt).toLocaleString('th-TH') : ""}
+                    </p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getPriorityColor(ticket.priority)}`}>
                     {ticket.priority}
@@ -194,7 +203,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                       <div>
                         <span className="text-slate-500 block">คาดการณ์ค่าใช้จ่าย</span>
                         <span className="font-medium text-foreground">
-                          {ticket.costEstimateMin && ticket.costEstimateMax 
+                          {ticket.costEstimateMin !== null && ticket.costEstimateMax !== null 
                             ? `฿${ticket.costEstimateMin} - ฿${ticket.costEstimateMax}`
                             : 'ไม่สามารถประเมินได้'}
                         </span>
@@ -210,12 +219,13 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               
               <div className="w-full md:w-64 flex flex-col gap-3">
                 {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" && (
-                  <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700">
+                  <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 relative">
                     <img 
-                      src={ticket.imageUrl} 
+                      src={imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl} 
+                      onError={() => setImageError(prev => ({ ...prev, [ticket.id]: true }))}
                       alt="รูปภาพปัญหาแจ้งซ่อม" 
                       className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(ticket.imageUrl || "", "_blank")}
+                      onClick={() => window.open(imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl || "", "_blank")}
                     />
                   </div>
                 )}
@@ -245,7 +255,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </svg>
-                          รับงานนี้ 🛠️
+                          รับงานนี้ <Wrench className="w-4 h-4 ml-1" />
                         </>
                       )}
                     </button>
@@ -368,7 +378,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               onClick={() => setSelectedTicketForDetails(null)}
               className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-500 hover:text-red-600 flex items-center justify-center transition-all duration-300 font-bold"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -380,9 +390,10 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               <div className="space-y-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ภาพถ่ายจากสถานที่จริง</span>
                 {selectedTicketForDetails.imageUrl ? (
-                  <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative group">
+                  <div className="h-64 bg-slate-100 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative group flex items-center justify-center">
                     <img 
-                      src={selectedTicketForDetails.imageUrl} 
+                      src={imageError[selectedTicketForDetails.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : selectedTicketForDetails.imageUrl} 
+                      onError={() => setImageError(prev => ({ ...prev, [selectedTicketForDetails.id]: true }))}
                       alt="ภาพปัญหาแจ้งซ่อม" 
                       className="w-full h-full object-cover"
                     />
@@ -399,11 +410,11 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                 {/* Device Info */}
                 <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">ข้อมูลระบุตำแหน่ง</span>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    📍 สถานที่/ห้อง: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] || "ไม่ได้ระบุห้อง"}</span>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary-500" /> สถานที่/ห้อง: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[ห้อง:\s*([^\]]+)\]/)?.[1] || "ไม่ได้ระบุห้อง"}</span>
                   </p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                    🏷️ รหัสอุปกรณ์: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] || "ไม่มีรหัสอุปกรณ์"}</span>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-primary-500" /> รหัสอุปกรณ์: <span className="font-normal text-slate-500">{selectedTicketForDetails.description.match(/\[รหัสอุปกรณ์:\s*([^\]]+)\]/)?.[1] || "ไม่มีรหัสอุปกรณ์"}</span>
                   </p>
                 </div>
               </div>
@@ -414,7 +425,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                 {/* AI Diagnoses Card */}
                 <div className="bg-primary-50/50 dark:bg-slate-900/50 p-5 rounded-2xl border border-primary-100 dark:border-slate-700 space-y-4">
                   <div className="flex items-center gap-2 text-primary-700 dark:text-primary-400">
-                    <span className="text-base">✨</span>
+                    <Sparkles className="w-5 h-5" />
                     <h4 className="font-black text-sm uppercase tracking-wider">รายงานผลวิเคราะห์ AI อัจฉริยะ</h4>
                   </div>
 
@@ -437,17 +448,17 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
 
                 {/* Estimates Card */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ประเมินงบประมาณ</span>
-                    <p className="text-lg font-black text-slate-800 dark:text-white mt-1">
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินงบประมาณ</span>
+                    <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight">
                       ฿{selectedTicketForDetails.costEstimateMin || 0} - ฿{selectedTicketForDetails.costEstimateMax || 0}
                     </p>
                   </div>
 
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">ประเมินเวลาซ่อม</span>
-                    <p className="text-lg font-black text-slate-800 dark:text-white mt-1">
-                      ⏱️ {selectedTicketForDetails.timeEstimate || "ไม่ระบุ"}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col justify-center overflow-hidden">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block shrink-0">ประเมินเวลาซ่อม</span>
+                    <p className="text-base md:text-lg font-black text-slate-800 dark:text-white mt-1 break-words whitespace-normal leading-tight flex items-center gap-1.5">
+                      <Clock className="w-5 h-5 text-slate-400" /> {selectedTicketForDetails.timeEstimate || "ไม่ระบุ"}
                     </p>
                   </div>
                 </div>
@@ -464,7 +475,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                         {selectedTicketForDetails.technician?.name || "ผู้ใช้งานแจ้งระบบ"}
                       </p>
                       <p className="text-xs text-slate-400">
-                        วันที่แจ้ง: {new Date(selectedTicketForDetails.createdAt).toLocaleString("th-TH")}
+                        วันที่แจ้ง: {mounted ? new Date(selectedTicketForDetails.createdAt).toLocaleString("th-TH") : ""}
                       </p>
                     </div>
                   </div>
