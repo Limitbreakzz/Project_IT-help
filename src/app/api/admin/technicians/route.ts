@@ -63,3 +63,69 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "เกิดข้อผิดพลาดในการสร้างข้อมูลช่าง" }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id, name, password } = await req.json();
+    if (!id || !name) {
+      return NextResponse.json({ error: "กรุณาระบุข้อมูลที่ต้องการแก้ไข" }, { status: 400 });
+    }
+
+    const dataToUpdate: any = { name };
+    if (password && password.trim() !== "") {
+      dataToUpdate.password = await bcrypt.hash(password, 10);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true
+      }
+    });
+
+    return NextResponse.json(updatedUser);
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการแก้ไขข้อมูลช่าง" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id } = await req.json();
+    if (!id) {
+      return NextResponse.json({ error: "กรุณาระบุ ID ของช่างที่ต้องการลบ" }, { status: 400 });
+    }
+
+    // 1. Disconnect this technician from any assigned tickets first to prevent DB foreign key constraint failure
+    await prisma.ticket.updateMany({
+      where: { technicianId: id },
+      data: { technicianId: null }
+    });
+
+    // 2. Delete the technician user account
+    await prisma.user.delete({
+      where: { id }
+    });
+
+    return NextResponse.json({ success: true, message: "ลบข้อมูลช่างซ่อมเรียบร้อยแล้ว" });
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json({ error: "เกิดข้อผิดพลาดในการลบข้อมูลช่าง" }, { status: 500 });
+  }
+}
+
