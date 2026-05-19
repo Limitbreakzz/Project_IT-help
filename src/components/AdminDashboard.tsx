@@ -218,7 +218,7 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
               </div>
               
               <div className="w-full md:w-64 flex flex-col gap-3">
-                {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" && (
+                {ticket.imageUrl && ticket.imageUrl !== "uploaded_image" ? (
                   <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-700 relative">
                     <img 
                       src={imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl} 
@@ -228,10 +228,14 @@ export default function AdminDashboard({ initialTickets }: { initialTickets: Tic
                       onClick={() => window.open(imageError[ticket.id] ? "https://placehold.co/600x400/e2e8f0/475569?text=Image+Not+Found" : ticket.imageUrl || "", "_blank")}
                     />
                   </div>
-                )}
-                {ticket.imageUrl === "uploaded_image" && (
+                ) : ticket.imageUrl === "uploaded_image" ? (
                   <div className="h-32 bg-slate-200 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 text-sm">
                     [รูปภาพเก่าไม่สามารถดูได้]
+                  </div>
+                ) : (
+                  <div className="h-32 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-2 p-4">
+                    <ImageIcon className="w-8 h-8 opacity-65 text-slate-350 dark:text-slate-600 animate-pulse" />
+                    <span className="text-xs font-bold tracking-tight">ไม่มีรูปภาพแนบ</span>
                   </div>
                 )}
                 <div className="mt-auto flex flex-col gap-2">
